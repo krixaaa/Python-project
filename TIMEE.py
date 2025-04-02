@@ -3,6 +3,7 @@ from tkinter import messagebox, ttk
 import os
 import csv
 from datetime import datetime
+from collections import defaultdict
 
 EXPENSE_FILE = "expenses.csv"
 
@@ -28,6 +29,7 @@ def add_expense():
         entry = f"{date} | {expense} | {category} | ${amount}"
         expense_list.insert(tk.END, entry)
         update_total()
+        update_summary()
         expense_entry.delete(0, tk.END)
         amount_entry.delete(0, tk.END)
         save_expenses()
@@ -39,6 +41,7 @@ def remove_expense():
         selected_expense_index = expense_list.curselection()[0]
         expense_list.delete(selected_expense_index)
         update_total()
+        update_summary()
         save_expenses()
     except IndexError:
         messagebox.showwarning("Warning", "Select an expense to remove!")
@@ -53,17 +56,35 @@ def update_total():
             pass
     total_label.config(text=f"Total: ${total:.2f}")
 
-def export_csv():
-    with open("exported_expenses.csv", "w", newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["Date", "Expense", "Category", "Amount"])
-        for i in range(expense_list.size()):
-            writer.writerow(expense_list.get(i).split(" | "))
-    messagebox.showinfo("Success", "Expenses exported successfully!")
+def update_summary():
+    expenses = [expense_list.get(i).split(" | ") for i in range(expense_list.size())]
+    
+    category_totals = defaultdict(float)
+    highest_expense = ("", 0.0)
+    daily_totals = defaultdict(float)
+    
+    for date, name, category, amount in expenses:
+        amount_value = float(amount.replace("$", ""))
+        category_totals[category] += amount_value
+        daily_totals[date] += amount_value
+        if amount_value > highest_expense[1]:
+            highest_expense = (name, amount_value)
+    
+    summary_text = "Total by Category:\n"
+    for cat, total in category_totals.items():
+        summary_text += f"{cat}: ${total:.2f}\n"
+    
+    if highest_expense[0]:
+        summary_text += f"\nHighest Expense: {highest_expense[0]} - ${highest_expense[1]:.2f}\n"
+    
+    avg_spending = sum(daily_totals.values()) / len(daily_totals) if daily_totals else 0
+    summary_text += f"\nAvg Daily Spending: ${avg_spending:.2f}"
+    
+    summary_label.config(text=summary_text)
 
 root = tk.Tk()
 root.title("Expense Manager")
-root.geometry("500x600")
+root.geometry("500x700")
 root.configure(bg="#2C3E50")
 
 frame = tk.Frame(root, bg="#2C3E50")
@@ -98,12 +119,16 @@ for expense in expenses:
 button_frame = tk.Frame(root, bg="#2C3E50")
 button_frame.pack(pady=10)
 
-tk.Button(button_frame, text="Add Expense", command=add_expense, bg="#1ABC9C", fg="black", font=("Arial", 10), width=12).grid(row=0, column=0, padx=5, pady=5)
-tk.Button(button_frame, text="Remove Expense", command=remove_expense, bg="#E74C3C", fg="black", font=("Arial", 10), width=12).grid(row=0, column=1, padx=5, pady=5)
-tk.Button(button_frame, text="Export CSV", command=export_csv, bg="#F1C40F", fg="black", font=("Arial", 10), width=12).grid(row=0, column=2, padx=5, pady=5)
+tk.Button(button_frame, text="Add Expense", command=add_expense, bg="#1ABC9C", fg="black", font=("Arial", 10), width=15).grid(row=0, column=0, padx=5, pady=5)
+tk.Button(button_frame, text="Remove Expense", command=remove_expense, bg="#E74C3C", fg="black", font=("Arial", 10), width=15).grid(row=0, column=1, padx=5, pady=5)
 
 total_label = tk.Label(root, text="Total: $0.00", bg="#2C3E50", fg="white", font=("Arial", 12, "bold"))
 total_label.pack(pady=10)
+
+summary_label = tk.Label(root, text="", bg="#2C3E50", fg="white", font=("Arial", 12), justify="left")
+summary_label.pack(pady=10)
+
 update_total()
+update_summary()
 
 root.mainloop()
